@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>Don't Hit The Walls</title>
+        <style>
+            canvas {
+                border: solid;
+                background-color: red;
+                cursor: crosshair;
+            }
+        </style>
+        <script src="ImageStack.js"></script>
+    </head> 
+    
+    <body>
+        <center>
+            <span id="sDist"></span>m
+        </center>
+        <script type="text/javascript">
+
+/*******************
+ *******************
+ * START VARIABLES *
+ *******************
+ *******************/
+
+// main canvas
+var ctx_main = document.createElement('canvas').getContext('2d');
+ctx_main.canvas.onmousemove = function(e){
+    setMousePos(e);
+}
+ctx_main.canvas.onclick = function(e){
+    setMousePos(e);
+    startGame();
+}
+
+// set up display
+var sDist = document.getElementById('sDist');
+sDist.innerText = 0;
+
+// all the parts to be loaded
+var parts = [
+    // straight is first for easy acces
+    ["straight.png", null, null],
+    
+    // yeah, everything else
+    ["2 bend.png", null, null],
+    ["5 bend.png", null, null],
+    ["circle path.png", null, null],
+    ["dot plate.png", null, null],
+    ["left bend.png", null, null],
+    ["right bend.png", null, null],
+    ["ring.png", null, null],
+];
+
+// variables for gameTick
+var startSpeed = 1;
+var speed = startSpeed;
+var distance = 0;
+var acceleration = 0.0005;
+var offsetY = speed;
+var activeParts = [0, 0];
+var reqAnimFrameId = 0;
+var mouseX = 0, mouseY = 0;
+
+// animation parts to be loaded
+var anims = [
+    ["circle anim 1.png", null, null],
+];
+
+// loading images stuff
+var animsStack = new ImageStack();
+animsStack.loadNewStack(
+    // srcs
+    anims.map(function(e){return "img\\" + e[0];}),
+    
+    // onload
+    function(img){
+        var c = document.createElement('canvas').getContext('2d');
+        c.canvas.width = img.width;
+        c.canvas.height = img.height;
+        c.drawImage(img, 0, 0);
+        anims[img.i][1] = img;
+        anims[img.i][2] = c.getImageData(0,0,img.width,img.height).data;
+    },
+    
+    // no need for oncomplete
+    function(img){}
+)
+
+var partsStack = new ImageStack();
+partsStack.loadNewStack(
+    // srcs
+    parts.map(function(e){return "img\\" + e[0];}),
+    
+    // onload
+    function(img){
+        var c = document.createElement('canvas').getContext('2d');
+        c.canvas.width = img.width;
+        c.canvas.height = img.height;
+        c.drawImage(img, 0, 0);
+        parts[img.i][1] = img;
+        parts[img.i][2] = c.getImageData(0,0,img.width,img.height).data;
+    },
+    
+    // oncomplete
+    function(img){
+        ctx_main.canvas.width = img.width;
+        ctx_main.canvas.height = img.height;
+        var c = document.createElement('center');
+        c.appendChild(ctx_main.canvas);
+        document.body.appendChild(c);
+        ctx_main.drawImage(parts[activeParts[0]][1],0,0);
+    }
+)
+
+/*****************
+ *****************
+ * END VARIABLES *
+ *****************
+ *****************/
+
+
+
+
+
+/******************
+ ******************
+ * START GAMEPLAY *
+ ******************
+ ******************/
+
+ function startGame(){
+    startSpeed = 1;
+    speed = startSpeed;
+    distance = 0;
+    acceleration = 0.0005;
+    offsetY = speed;
+    activeParts = [0, newPart()]
+    cancelAnimationFrame(reqAnimFrameId);
+    gameTick();
+ }
+ 
+/*
+ * Performs game tick
+ */
+function gameTick(){
+    
+    // draw the new frame
+    ctx_main.clearRect(0,0,ctx_main.canvas.width, ctx_main.canvas.height);
+    if (offsetY < speed) {
+        activeParts[0] = activeParts[1];
+        activeParts[1] = newPart();
+    }
+    ctx_main.drawImage(parts[activeParts[0]][1], 0, offsetY);
+    ctx_main.drawImage(parts[activeParts[1]][1], 0, offsetY-ctx_main.canvas.height);
+    
+    sDist.innerText = round(distance/1000,2)
+    
+    // do mouse stuff
+    var ny = 0, part = 0;
+    if (mouseY < offsetY){
+        ny = mouseY - offsetY + ctx_main.canvas.height;
+        part = activeParts[1];
+    } else {
+        ny = mouseY - offsetY;
+        part = activeParts[0];
+    }
+    //if it is on track
+    if (checkPixel(part, mouseX, ny)==1){
+        offsetY += speed;
+        offsetY %= ctx_main.canvas.height;
+        distance += speed;
+        speed += acceleration;
+        
+        // call next gameTick
+        reqAnimFrameId = requestAnimationFrame(gameTick);
+    }
+    // if it is off track
+    else {
+        alert("you dead. ");
+    }
+    
+    
+};
+
+
+/*
+ * Stops the game tick from running
+ */
+function stopAnimation(){
+    cancelAnimationFrame(reqAnimFrameId);
+}
+
+/****************
+ ****************
+ * END GAMEPLAY *
+ ****************
+ ****************/
+
+
+
+
+
+/*****************
+ *****************
+ * START HELPERS *
+ *****************
+ *****************/
+
+/*
+ * Checks the pixel at a coordinate on a part
+ *
+ * int part , the index of the part we are checking
+ *
+ * int x , the x-coordinate
+ *
+ * int y , the y-coordinate
+ *
+ * return int , {0: off track or hitting an animation, 1: on track}
+ */
+function checkPixel(part, x, y){
+    // check if in bounds
+    if (x < 0 || y < 0 || x > parts[part][1].width || y > parts[part][1].height) return 1;
+    
+    var index = (~~y*parts[part][1].width + ~~x)*4;
+    
+    var flag = parts[part][2][index+3] > 0 ? 1 : 0;
+    
+    if (flag == 1){
+        flag -= parts[part][2][index] != 255 && parts[part][2][index+1] != 255 && parts[part][2][inde+2] != 255 ? 1 : 0;
+    }
+    
+    return flag;
+}
+
+
+function round(val, dec){
+    return (~~(val*Math.pow(10, dec)))/Math.pow(10, dec);
+}
+
+function newPart(){
+    return 1+~~(Math.random()*(parts.length-1));
+}
+
+function setMousePos(e){
+    mouseX = e.offsetX;
+    mouseY = e.offsetY;
+}
+
+/***************
+ ***************
+ * END HELPERS *
+ ***************
+ ***************/
+
+        </script>
+    </body>
+</html>
