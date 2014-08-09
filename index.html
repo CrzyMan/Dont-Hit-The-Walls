@@ -5,9 +5,37 @@
         <title>Don't Hit The Walls</title>
         <style>
             canvas {
-                border: solid;
                 background-color: red;
                 cursor: crosshair;
+                border: solid;
+            }
+            
+            body {
+                background-color: #DDD;
+            }
+            
+            #container {
+                border: solidd;
+            }
+            
+            #container span {
+                display: none;
+                border: dashed;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translateY(-50%);
+                transform: translateX(-50%);
+                transform-style: preserve-3d;
+                padding: 10px;
+                z-index: 2;
+            }
+            
+            #sDist {
+                font-size: xx-large;
+                border: solid;
+                padding-left: 10px;
+                padding-right: 10px;
             }
         </style>
         <script src="ImageStack.js"></script>
@@ -15,7 +43,13 @@
     
     <body>
         <center>
-            <span id="sDist"></span>m
+            <span id="sDist"></span>
+        </center><br/>
+        <center id="container">
+            <span id="sDoneScreen" style="background-color: white">
+                <h1>You dead!</h1>
+                <button onclick="document.getElementById('sDoneScreen').style.display = 'none';">Get out of here</button>
+            </span>
         </center>
         <script type="text/javascript">
 
@@ -37,7 +71,7 @@ ctx_main.canvas.onclick = function(e){
 
 // set up display
 var sDist = document.getElementById('sDist');
-sDist.innerText = 0;
+sDist.innerText = "0 cm";
 
 // all the parts to be loaded
 var parts = [
@@ -108,9 +142,8 @@ partsStack.loadNewStack(
     function(img){
         ctx_main.canvas.width = img.width;
         ctx_main.canvas.height = img.height;
-        var c = document.createElement('center');
-        c.appendChild(ctx_main.canvas);
-        document.body.appendChild(c);
+        
+        document.getElementById('container').appendChild(ctx_main.canvas);
         ctx_main.drawImage(parts[activeParts[0]][1],0,0);
     }
 )
@@ -137,7 +170,8 @@ partsStack.loadNewStack(
     distance = 0;
     acceleration = 0.0005;
     offsetY = speed;
-    activeParts = [0, newPart()]
+    activeParts = [0, newPart()];
+    updateDisplay();
     cancelAnimationFrame(reqAnimFrameId);
     gameTick();
  }
@@ -156,7 +190,7 @@ function gameTick(){
     ctx_main.drawImage(parts[activeParts[0]][1], 0, offsetY);
     ctx_main.drawImage(parts[activeParts[1]][1], 0, offsetY-ctx_main.canvas.height);
     
-    sDist.innerText = round(distance/1000,2)
+    updateDisplay();
     
     // do mouse stuff
     var ny = 0, part = 0;
@@ -179,7 +213,8 @@ function gameTick(){
     }
     // if it is off track
     else {
-        alert("you dead. ");
+        document.getElementById('sDoneScreen').style.display = "block";
+        //alert("you dead. ");
     }
     
     
@@ -235,20 +270,57 @@ function checkPixel(part, x, y){
     return flag;
 }
 
-
-function round(val, dec){
-    return (~~(val*Math.pow(10, dec)))/Math.pow(10, dec);
+/*
+ * Truncates a value to the decimal place
+ *
+ * float val , value to truncate
+ *
+ * int dec , the decimal place to truncate to
+ *
+ * return [float, int] , it depends on val and dec
+ */
+function trunc(val, dec){
+    var p = Math.pow(10, ~~dec||0);
+    return (~~(val*p))/p;
 }
 
+
+function round(val, dec){
+    var p = Math.pow(10, ~~dec||0);
+    return Math.round(p*val)/p;
+}
+
+/*
+ * Selects a random, non-start part
+ *
+ * return int , random int representing the index of from the second part to the last part
+ */
 function newPart(){
     return 1+~~(Math.random()*(parts.length-1));
 }
 
+/*
+ * Sets the mouse position from the MouseEvent passed, probably not IE or FF compatible
+ */
 function setMousePos(e){
     mouseX = e.offsetX;
     mouseY = e.offsetY;
 }
 
+function updateDisplay(){
+    sDist.innerText = distToString();
+}
+
+function distToString(){
+    if (distance < 1000){
+        return ~~(distance/10) + " cm";
+    }
+    var num = round(distance/1000,2);
+    var dec = 10*round(num%1,2);
+    var mil = 10*round(10*num%1,2);
+    return num + (dec==0?".0":"") + (mil==0?"0":"") + " m"
+    
+}
 /***************
  ***************
  * END HELPERS *
