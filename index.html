@@ -5,9 +5,20 @@
         <title>Don't Hit The Walls</title>
         <style>
             canvas {
-                background-color: red;
+                -webkit-animation: myfirst 60s infinite; /* Chrome, Safari, Opera */
+                -webkit-animation-timing-function: linear;
                 cursor: crosshair;
                 border: solid;
+            }
+            
+            /* Chrome, Safari, Opera */
+            @-webkit-keyframes myfirst {
+                0%   {background: #F26C4F;}
+                20%  {background: #FFF467;}
+                40%  {background: #3BB878;}
+                60%  {background: #00BFF3;}
+                80%  {background: #855FA8;}
+                100% {background: #F26C4F;}
             }
             
             body {
@@ -15,7 +26,7 @@
             }
             
             #container {
-                border: solidd;
+                
             }
             
             #container span {
@@ -24,11 +35,10 @@
                 position: absolute;
                 top: 50%;
                 left: 50%;
-                transform: translateY(-50%);
-                transform: translateX(-50%);
                 transform-style: preserve-3d;
+                transform: translateY(-50%) translateX(-50%);
                 padding: 10px;
-                z-index: 2;
+                z-index: 3;
             }
             
             #sDist {
@@ -37,18 +47,35 @@
                 padding-left: 10px;
                 padding-right: 10px;
             }
+            
+            #cover {
+                position: absolute;
+                overflow: hidden;
+                z-index: 2;
+                opacity: 0.7;
+                display: none;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
         </style>
         <script src="ImageStack.js"></script>
     </head> 
     
     <body>
+        <img id="cover" src="img/dark.png" />
         <center>
             <span id="sDist"></span>
         </center><br/>
         <center id="container">
             <span id="sDoneScreen" style="background-color: white">
                 <h1>You dead!</h1>
-                <button onclick="document.getElementById('sDoneScreen').style.display = 'none';">Get out of here</button>
+                <button onclick="hidePopup(0);">Get out of here</button>
+            </span>
+            <span id="sPauseScreen" style="background-color: white">
+                <h1>Hold UP!</h1>
+                <button onclick="hidePopup(1);">Get out of here</button>
             </span>
         </center>
         <script type="text/javascript">
@@ -61,13 +88,20 @@
 
 // main canvas
 var ctx_main = document.createElement('canvas').getContext('2d');
+ctx_main.data = ctx_main.getImageData(0, 0, ctx_main.canvas.width, ctx_main.canvas.height).data;
 ctx_main.canvas.onmousemove = function(e){
     setMousePos(e);
 }
+
 ctx_main.canvas.onclick = function(e){
     setMousePos(e);
     startGame();
 }
+
+// DOM elements
+var cover = document.getElementById('cover');
+var sDoneScreen = document.getElementById('sDoneScreen');
+var sPauseScreen = document.getElementById('sPauseScreen');
 
 // set up display
 var sDist = document.getElementById('sDist');
@@ -75,17 +109,21 @@ sDist.innerText = "0 cm";
 
 // all the parts to be loaded
 var parts = [
-    // straight is first for easy acces
-    ["straight.png", null, null],
+    // ["path", image, modifier]
     
-    // yeah, everything else
-    ["2 bend.png", null, null],
-    ["5 bend.png", null, null],
-    ["circle path.png", null, null],
-    ["dot plate.png", null, null],
-    ["left bend.png", null, null],
-    ["right bend.png", null, null],
-    ["ring.png", null, null],
+    // straight is first for easy acces
+    ["straight.png", null, 0],
+    
+    // ones that require animation
+    ["circle path.png", null, 0],
+    
+    // purely static parts
+    ["2 bend.png", null, 0],
+    ["5 bend.png", null, 0],
+    ["dot plate.png", null, 0],
+    ["left bend.png", null, 0],
+    ["right bend.png", null, 0],
+    ["ring.png", null, 0],
 ];
 
 // variables for gameTick
@@ -94,13 +132,14 @@ var speed = startSpeed;
 var distance = 0;
 var acceleration = 0.0005;
 var offsetY = speed;
-var activeParts = [0, 0];
+var activeParts = [0, 0]; // [bottom, top]
 var reqAnimFrameId = 0;
 var mouseX = 0, mouseY = 0;
 
-// animation parts to be loaded
+// animated parts
 var anims = [
-    ["circle anim 1.png", null, null],
+    // ["path", image, modifier]
+    ["circle anim 1.png", null, 1],
 ];
 
 // loading images stuff
@@ -111,12 +150,7 @@ animsStack.loadNewStack(
     
     // onload
     function(img){
-        var c = document.createElement('canvas').getContext('2d');
-        c.canvas.width = img.width;
-        c.canvas.height = img.height;
-        c.drawImage(img, 0, 0);
         anims[img.i][1] = img;
-        anims[img.i][2] = c.getImageData(0,0,img.width,img.height).data;
     },
     
     // no need for oncomplete
@@ -130,12 +164,7 @@ partsStack.loadNewStack(
     
     // onload
     function(img){
-        var c = document.createElement('canvas').getContext('2d');
-        c.canvas.width = img.width;
-        c.canvas.height = img.height;
-        c.drawImage(img, 0, 0);
         parts[img.i][1] = img;
-        parts[img.i][2] = c.getImageData(0,0,img.width,img.height).data;
     },
     
     // oncomplete
@@ -170,7 +199,7 @@ partsStack.loadNewStack(
     distance = 0;
     acceleration = 0.0005;
     offsetY = speed;
-    activeParts = [0, newPart()];
+    activeParts = [0, 1];//newPart()];
     updateDisplay();
     cancelAnimationFrame(reqAnimFrameId);
     gameTick();
@@ -181,18 +210,18 @@ partsStack.loadNewStack(
  */
 function gameTick(){
     
+    if (distance >= 8000){
+        if (distance){}
+    }
+    
     // draw the new frame
     ctx_main.clearRect(0,0,ctx_main.canvas.width, ctx_main.canvas.height);
-    if (offsetY < speed) {
-        activeParts[0] = activeParts[1];
-        activeParts[1] = newPart();
-    }
-    ctx_main.drawImage(parts[activeParts[0]][1], 0, offsetY);
-    ctx_main.drawImage(parts[activeParts[1]][1], 0, offsetY-ctx_main.canvas.height);
+    
+    drawParts();
     
     updateDisplay();
     
-    // do mouse stuff
+    /* do mouse stuff *
     var ny = 0, part = 0;
     if (mouseY < offsetY){
         ny = mouseY - offsetY + ctx_main.canvas.height;
@@ -201,10 +230,16 @@ function gameTick(){
         ny = mouseY - offsetY;
         part = activeParts[0];
     }
+    /* */
     //if it is on track
-    if (checkPixel(part, mouseX, ny)==1){
+    //if (checkPixel(part, mouseX, ny)==1){
+    if (checkPix(mouseX, mouseY)==1){
         offsetY += speed;
-        offsetY %= ctx_main.canvas.height;
+        if (offsetY > ctx_main.canvas.height) {
+            activeParts[0] = activeParts[1];
+            activeParts[1] = newPart();
+            offsetY -= ctx_main.canvas.height;
+        }
         distance += speed;
         speed += acceleration;
         
@@ -213,8 +248,7 @@ function gameTick(){
     }
     // if it is off track
     else {
-        document.getElementById('sDoneScreen').style.display = "block";
-        //alert("you dead. ");
+        showPopup(0);
     }
     
     
@@ -245,9 +279,7 @@ function stopAnimation(){
  *****************/
 
 /*
- * Checks the pixel at a coordinate on a part
- *
- * int part , the index of the part we are checking
+ * Checks the pixel at a coordinate
  *
  * int x , the x-coordinate
  *
@@ -255,16 +287,17 @@ function stopAnimation(){
  *
  * return int , {0: off track or hitting an animation, 1: on track}
  */
-function checkPixel(part, x, y){
-    // check if in bounds
-    if (x < 0 || y < 0 || x > parts[part][1].width || y > parts[part][1].height) return 1;
+function checkPix(x, y){
+    if (x < 0 || y < 0 || x > ctx_main.canvas.width || y > ctx_main.canvas.height) return 1;
     
-    var index = (~~y*parts[part][1].width + ~~x)*4;
+    var index = (~~y*ctx_main.canvas.width + ~~x)*4;
     
-    var flag = parts[part][2][index+3] > 0 ? 1 : 0;
+    ctx_main.data = ctx_main.getImageData(0, 0, ctx_main.canvas.width, ctx_main.canvas.height).data;
+    
+    var flag = ctx_main.data[index+3] > 0 ? 1 : 0;
     
     if (flag == 1){
-        flag -= parts[part][2][index] != 255 && parts[part][2][index+1] != 255 && parts[part][2][inde+2] != 255 ? 1 : 0;
+        flag -= ctx_main.data[index] != 255 && ctx_main.data[index+1] != 255 && ctx_main.data[index+2] != 255 ? 1 : 0;
     }
     
     return flag;
@@ -296,21 +329,42 @@ function round(val, dec){
  * return int , random int representing the index of from the second part to the last part
  */
 function newPart(){
-    return 1+~~(Math.random()*(parts.length-1));
+    var part = 1+~~(Math.random()*(parts.length-1));
+    
+    switch (part){
+        case 1:
+            var options = [0];
+            parts[1][2] = options[randInt(options.length - 1)];
+            break;
+        
+        default:
+            break;
+    }
+    
+    return 1;
+    //return part;
 }
 
 /*
  * Sets the mouse position from the MouseEvent passed, probably not IE or FF compatible
+ *
+ * MouseEvent e , the MouseEvent passed
  */
 function setMousePos(e){
-    mouseX = e.offsetX;
+    mouseX = e.offsetX - 4;
     mouseY = e.offsetY;
 }
 
+/*
+ * update all data displays that are shown to the user
+ */
 function updateDisplay(){
     sDist.innerText = distToString();
 }
 
+/*
+ * turn the distance into a string that always has decimals.
+ */
 function distToString(){
     if (distance < 1000){
         return ~~(distance/10) + " cm";
@@ -321,6 +375,74 @@ function distToString(){
     return num + (dec==0?".0":"") + (mil==0?"0":"") + " m"
     
 }
+
+/*
+ *
+ */
+function drawParts(){
+    // draw the bottom part
+    drawPart(activeParts[0]);
+    
+    // draw the top part
+    drawPart(activeParts[1], true);
+}
+
+function drawPart(p, top){
+    switch (p){
+        case 1:
+            ctx_main.drawImage(parts[1][1], 0, offsetY-(top?ctx_main.canvas.height:0));
+            
+            ctx_main.save();
+            ctx_main.translate(ctx_main.canvas.width/2, offsetY-(top?ctx_main.canvas.height:0) + ctx_main.canvas.height/2);
+            ctx_main.rotate(anims[parts[1][2]][2]);
+            anims[parts[1][2]][2] = 0.1 + Math.PI*offsetY/ctx_main.canvas.height;
+            ctx_main.drawImage(anims[parts[p][2]][1], -ctx_main.canvas.width/2, -ctx_main.canvas.height/2);
+            ctx_main.restore();
+            break;
+        
+        default:
+            ctx_main.drawImage(parts[p][1], 0, offsetY-(top?ctx_main.canvas.height:0));
+            break;
+    }
+}
+
+function randInt(max, min){
+    min = min || 0;
+    return ~~min + ~~(Math.random()*(max-min+1));
+}
+
+function showPopup(p){
+    cover.style.display = 'block';
+    switch (p){
+        case 0:
+            sDoneScreen.style.display = 'block';
+            break;
+        
+        case 1:
+            sPauseScreen.style.display = 'block';
+            break;
+        
+        default:
+            break;
+    }
+}
+
+function hidePopup(p){
+    cover.style.display = 'none';
+    switch (p){
+        case 0:
+            sDoneScreen.style.display = 'none';
+            break;
+        
+        case 1:
+            sPauseScreen.style.display = 'none';
+            break;
+        
+        default:
+            break;
+    }
+}
+
 /***************
  ***************
  * END HELPERS *
